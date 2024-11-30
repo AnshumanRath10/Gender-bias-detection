@@ -1,0 +1,572 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Gender Bias Detection Calculator</title>
+    <!-- <script type="module" src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.min.js" defer></script> -->
+    <!-- <script defer type="module" src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.js" integrity="sha512-7DgGWBKHddtgZ9Cgu8aGfJXvgcVv4SWSESomRtghob4k4orCBUTSRQ4s5SaC2Rz+OptMqNk0aHHsaUBk6fzIXw==" crossorigin="anonymous" referrerpolicy="no-referrer"></script> -->
+    <style>
+      body {
+        background-color: #24292e; /* Dark background */
+        color: #f0f9ff; /* Bright white text */
+        font-family: "Poppins", sans-serif; /* Modern font */
+        margin: 0;
+        display: flex;
+        flex-direction: column; /* Column layout */
+        align-items: center;
+        min-height: 100vh;
+      }
+
+      .header {
+        text-align: center;
+        padding: 20px 0;
+        margin-bottom: 30px;
+      }
+
+      .header h1 {
+        font-size: 2.5em;
+        font-weight: bold;
+        color: #93c47c; /* Greenish-blue */
+      }
+
+      .container {
+        display: flex;
+        width: 80%;
+        justify-content: space-between;
+        gap: 20px; /* Add gap between sections */
+      }
+
+      .input-section,
+      .output-section {
+        width: 45%;
+        padding: 20px;
+      }
+
+      /* Output Section Styles */
+      .output-section {
+        background-color: #30363b; /* Match input section color */
+        border-radius: 8px;
+        color: #d0e3f0; /* Slightly lighter text */
+        overflow-y: auto;
+        max-height: 400px;
+        flex: 1;
+      }
+
+      /* Headings Styles */
+      h2 {
+        color: #93c47c; /* Greenish-blue for emphasis */
+        margin-bottom: 15px;
+        font-size: 1.3em;
+        font-weight: bold;
+      }
+
+      /* Input Styles */
+      input,
+      button,
+      select,
+      textarea {
+        background-color: #3a454c; /* Subdued background */
+        color: #e0edf1; /* Light text */
+        border: 1px solid #444e54; /* Consistent border */
+        padding: 10px;
+        margin: 10px auto; /* Center elements horizontally */
+        width: 100%;
+        border-radius: 5px;
+        font-size: 1em;
+      }
+
+      /* Button Styles */
+      button {
+        cursor: pointer;
+        background-color: #000000; /* Black for the button */
+        color: #fff; /* White text */
+        font-weight: bold;
+        border: none;
+        transition: background-color 0.3s; /* Smooth color transition */
+      }
+
+      button:hover {
+        background-color: #444e54; /* Darker shade on hover */
+      }
+
+      /* Result Styles */
+      #result {
+        padding: 15px;
+        border-radius: 5px;
+        background-color: #444e54; /* Darker background for result */
+        color: #fff;
+        font-weight: bold;
+      }
+
+      .gender-bias {
+        position: absolute;
+        top: 5px;
+        right: 5px;
+        font-weight: bold;
+        font-size: 1.2em; /* Slightly larger font */
+      }
+
+      .male-bias {
+        color: #ff5722; /* Red for male bias */
+      }
+
+      .female-bias {
+        color: #66b3ff; /* Blue for female bias */
+      }
+
+      .no-bias {
+        color: #93c47c; /* Greenish-blue for neutral feedback */
+      }
+
+      /* Text Area Styles */
+      textarea {
+        height: 150px;
+        resize: none;
+      }
+    </style>
+  </head>
+  <body>
+    <!-- Header Section -->
+    <div class="header">
+      <h1>Gender Bias Detection Calculator</h1>
+    </div>
+
+    <!-- Main Content -->
+    <div class="container">
+      <!-- Left Section: Input -->
+      <div class="input-section">
+        <!-- Text Input Section -->
+        <h2>Text Input for Detection</h2>
+        <textarea
+          id="textInput"
+          rows="4"
+          placeholder="Enter text to check for gender bias"
+        ></textarea
+        ><br />
+        <button onclick="detectBiasText()">Check Bias in Text</button>
+
+        <!-- File Upload Section -->
+        <h2>Upload File (CSV/Excel)</h2>
+        <input type="file" id="fileInput" accept=".csv, .xlsx" /><br />
+
+        <div id="columnSelectDiv" style="display: none">
+          <label for="columnSelect">Select Column for Bias Detection:</label>
+          <select id="columnSelect"></select
+          ><br />
+
+          <label for="methodSelect">Select Detection Method:</label>
+          <select id="methodSelect">
+            <option value="keywords">Keywords</option>
+            <option value="bert">BERT Model</option></select
+          ><br />
+
+          <button id="detectBiasInFileBtn">Detect Bias in File</button>
+        </div>
+      </div>
+
+      <!-- Right Section: Output -->
+      <div class="output-section">
+        <h2>Results</h2>
+        <div id="result"></div>
+      </div>
+    </div>
+    <canvas
+      id="pieChart"
+      style="max-width: 400px !important; max-height: 400px !important"
+    ></canvas>
+
+    <script type="module" defer>
+      let currentFile = null;
+
+      const keywords = {
+        male: [
+          "\\bhe\\b",
+          "\\bmen\\b",
+          "\\bhim\\b",
+          "\\bhis\\b",
+          "\\bman\\b",
+          "\\bhusband\\b",
+          "\\bfather\\b",
+          "\\bboy\\b",
+          "\\bbrother\\b",
+          "\\bson\\b",
+          "\\bgentleman\\b",
+          "\\bbachelor\\b",
+          "\\buncle\\b",
+          "\\bnephew\\b",
+          "\\bactor\\b",
+          "\\bking\\b",
+          "\\bprince\\b",
+          "\\bwaiter\\b",
+          "\\bpilot\\b",
+          "\\bsurgeon\\b",
+          "\\bscientist\\b",
+          "\\bsoldier\\b",
+          "\\bpoliceman\\b",
+          "\\bfireman\\b",
+          "\\bmechanic\\b",
+          "\\bcarpenter\\b",
+          "\\bengineer\\b",
+          "\\bprogrammer\\b",
+          "\\blawyer\\b",
+          "\\barchitect\\b",
+          "\\bprofessor\\b",
+          "\\bfarmer\\b",
+          "\\bhunter\\b",
+          "\\bdriver\\b",
+          "\\bchef\\b",
+          "\\bjanitor\\b",
+          "\\bcoach\\b",
+          "\\bprincipal\\b",
+          "\\bdirector\\b",
+          "\\bmayor\\b",
+          "वह",
+          "पुरुष",
+          "पति",
+          "लड़का",
+          "पिता",
+          "भाई",
+          "बेटा",
+          "शादीशुदा",
+          "शौहर",
+          "ସେ",
+          "ପୁରୁଷ",
+          "ପତି",
+          "ଲଡ଼କା",
+          "ପିତା",
+          "ଭାଇ",
+          "ପୁତ୍ର",
+          "ପତି",
+          "అతను",
+          "పురుషుడు",
+          "భర్త",
+          "ఆడపిల్ల",
+          "తమ్ముడు",
+          "నాథుడు",
+          "పెద్దవాడు",
+        ],
+        female: [
+          "\\bshe\\b",
+          "\\bwomen\\b",
+          "\\bher\\b",
+          "\\bhers\\b",
+          "\\bwoman\\b",
+          "\\bwife\\b",
+          "\\bmother\\b",
+          "\\bgirl\\b",
+          "\\bsister\\b",
+          "\\bdaughter\\b",
+          "\\blady\\b",
+          "\\bmaiden\\b",
+          "\\baunt\\b",
+          "\\bniece\\b",
+          "\\bactress\\b",
+          "\\bqueen\\b",
+          "\\bprincess\\b",
+          "\\bwaitress\\b",
+          "\\bhostess\\b",
+          "\\bnurse\\b",
+          "\\bscientist\\b",
+          "\\bdancer\\b",
+          "\\bmaid\\b",
+          "\\bhairdresser\\b",
+          "\\bseamstress\\b",
+          "\\bteacher\\b",
+          "\\bartist\\b",
+          "\\bsinger\\b",
+          "\\bsecretary\\b",
+          "\\bflorist\\b",
+          "\\btherapist\\b",
+          "\\bchef\\b",
+          "\\bbaker\\b",
+          "\\bnanny\\b",
+          "\\bmodel\\b",
+          "\\bcashier\\b",
+          "\\bdesigner\\b",
+          "\\bwriter\\b",
+          "\\bpoetess\\b",
+          "\\bcounselor\\b",
+          "वह",
+          "महिला",
+          "पत्नी",
+          "लड़की",
+          "माँ",
+          "बहन",
+          "बेटी",
+          "शादीशुदा",
+          "बहू",
+          "ସେ",
+          "ମହିଳା",
+          "ପତ୍ନୀ",
+          "ଲଡ଼ି",
+          "ମା",
+          "ବହିନ",
+          "କନ୍ୟା",
+          "ଶ୍ରୀମତୀ",
+          "ఆమె",
+          "స్త్రీ",
+          "పత్నీ",
+          "కుమారి",
+          "తల్లి",
+          "చెల్లెలు",
+          "మగువ",
+        ],
+      };
+
+      function detectBiasInText(text) {
+        const maleRegex = new RegExp(keywords.male.join("|"), "gi");
+        const femaleRegex = new RegExp(keywords.female.join("|"), "gi");
+
+        const maleMatches = text.match(maleRegex);
+        const femaleMatches = text.match(femaleRegex);
+
+        if (femaleMatches && femaleMatches.length > 0) {
+          return "female-bias"; // Female-focused bias detected
+        } else if (maleMatches && maleMatches.length > 0) {
+          return "male-bias"; // Male-focused bias detected
+        } else {
+          return "no-bias"; // No gender bias found
+        }
+      }
+
+      function detectBiasText() {
+        const text = document.getElementById("textInput").value.toLowerCase();
+        const result = document.getElementById("result");
+        const biasResult = detectBiasInText(text);
+
+        result.innerHTML = `<span class="${biasResult}">${text}</span>: ${biasResult
+          .replace("-", " ")
+          .toUpperCase()}`;
+      }
+
+      async function detectBiasWithBERT(texts) {
+        const response = await fetch("http://localhost:5000/detect-bias", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ texts }),
+        });
+        const result = await response.json();
+        return result; // Process result as needed
+      }
+
+      document
+        .getElementById("detectBiasInFileBtn")
+        .addEventListener("click", detectBiasInFile);
+
+      var maleBias = 0;
+      var femaleBias = 0;
+      var noBias = 0;
+      var positive = 0;
+      var negative = 0;
+      var genderBias = 0;
+      var neutral = 0;
+
+      async function detectBiasInFile() {
+        const columnSelect = document.getElementById("columnSelect");
+        const column = columnSelect.value;
+        const methodSelect = document.getElementById("methodSelect");
+        const method = methodSelect.value;
+
+        if (!column) {
+          alert("Please select a column.");
+          return;
+        }
+
+        const result = document.getElementById("result");
+        const results = [];
+
+        const batchRequestBody = [];
+        currentFile.forEach((row) => {
+          const text = row[column].toString().toLowerCase();
+
+          if (method === "keywords") {
+            const biasResult = detectBiasInText(text);
+
+            switch (biasResult) {
+              case "female-bias":
+                femaleBias++;
+                break;
+              case "male-bias":
+                maleBias++;
+                break;
+              case "no-bias":
+                noBias++;
+                break;
+              default:
+                break;
+            }
+
+            results.push(
+              `<span class="${biasResult}">${row[column]}</span>: ${biasResult
+                .replace("-", " ")
+                .toUpperCase()}`
+            );
+          } else {
+            batchRequestBody.push(text);
+
+            // results.push(
+            //   `${row[column]}: (BERT-based detection to be implemented)`
+            // );
+          }
+        });
+
+        if (batchRequestBody.length > 0) {
+          console.log("batchRequestBody", batchRequestBody[1]);
+
+          // Call the BERT API to detect bias
+          const res = await detectBiasWithBERT(batchRequestBody);
+          console.log("res", res);
+
+          // Add each result to the results array
+          // Format of res => [{classification: {labels: ['neutral', 'bias'], scores: [0.9, 0.1], sequence: 'text'}}]
+          // attach corresponding label to score
+          res.forEach((r, i) => {
+            const text = r?.classification?.sequence;
+            const biasResult = r?.classification?.labels[1];
+            if (biasResult === "gender bias") {
+              genderBias++;
+            } else if (biasResult === "neutral") {
+              neutral++;
+            } else if (biasResult === "positive") {
+              positive++;
+            } else if (biasResult === "negative") {
+              negative++;
+            }
+
+            let htmlText = `<p style="margin-bottom: 10px;">Text:<span style="color:#93c47c;">${text}</span><br>`;
+            r?.classification?.labels?.forEach((label, j) => {
+              htmlText += `<span style="color: white;">${label.toUpperCase()} (${
+                r?.classification?.scores[j]
+              })<span><br>`;
+            });
+            htmlText += "</p>";
+
+            results.push(htmlText);
+          });
+
+          renderPieChart("bert");
+        } else {
+          renderPieChart("keywords");
+        }
+
+        result.innerHTML = results.join("<br>");
+      }
+
+      function renderPieChart(method) {
+        const ctx = document.getElementById("pieChart").getContext("2d");
+
+        // Data for the pie chart
+        let data = {};
+        if (method === "keywords") {
+          data = {
+            labels: ["Male Bias", "Female Bias", "No Bias"],
+            datasets: [
+              {
+                label: "Sample Dataset",
+                data: [maleBias, femaleBias, noBias], // Values for each segment
+                backgroundColor: [
+                  "rgba(0, 99, 132, 0.2)",
+                  "rgba(0, 162, 0, 0.2)",
+                  "rgba(255, 206, 86, 0.2)",
+                ],
+                borderColor: [
+                  "rgba(0, 99, 132, 1)",
+                  "rgba(0, 162, 0, 1)",
+                  "rgba(255, 206, 86, 1)",
+                ],
+                borderWidth: 1,
+              },
+            ],
+          };
+        } else if (method === "bert") {
+          data = {
+            labels: ["POSITIVE", "NEGATIVE", "GENDER BIAS", "NEUTRAL"],
+            datasets: [
+              {
+                label: "Sample Dataset",
+                data: [positive, negative, neutral, genderBias], // Values for each segment
+                backgroundColor: [
+                  "rgba(0, 99, 132, 0.2)",
+                  "rgba(0, 162, 0, 0.2)",
+                  "rgba(255, 206, 86, 0.2)",
+                  "rgba(255, 99, 132, 0.2)",
+                ],
+                borderColor: [
+                  "rgba(0, 99, 132, 1)",
+                  "rgba(0, 162, 0, 1)",
+                  "rgba(255, 206, 86, 1)",
+                  "rgba(255, 99, 132, 1)",
+                ],
+                borderWidth: 1,
+              },
+            ],
+          };
+        }
+
+        const config = {
+          type: "pie",
+          data: data,
+          options: {
+            responsive: true,
+            plugins: {
+              legend: {
+                position: "top",
+              },
+              title: {
+                display: true,
+                text: "Pie Chart",
+              },
+            },
+          },
+        };
+
+        const pieChart = new Chart(ctx, config);
+      }
+
+      document
+        .getElementById("fileInput")
+        .addEventListener("change", processFile);
+
+      function processFile() {
+        const fileInput = document.getElementById("fileInput");
+        const columnSelect = document.getElementById("columnSelect");
+        const columnSelectDiv = document.getElementById("columnSelectDiv");
+
+        if (fileInput.files.length === 0) {
+          alert("Please upload a file.");
+          return;
+        }
+
+        const file = fileInput.files[0];
+        const reader = new FileReader();
+        reader.onload = function (event) {
+          const data = event.target.result;
+          const workbook = XLSX.read(data, { type: "binary" });
+
+          const sheet = workbook.Sheets[workbook.SheetNames[0]];
+          const jsonData = XLSX.utils.sheet_to_json(sheet);
+
+          const columns = Object.keys(jsonData[0]);
+          columns.forEach((column) => {
+            const option = document.createElement("option");
+            option.value = column;
+            option.textContent = column;
+            columnSelect.appendChild(option);
+          });
+
+          currentFile = jsonData;
+          columnSelectDiv.style.display = "block";
+        };
+
+        reader.readAsBinaryString(file);
+      }
+    </script>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.17.0/xlsx.full.min.js"></script>
+    <script
+      type="module"
+      src="https://cdn.jsdelivr.net/npm/chart.js@4.3.0/dist/chart.umd.min.js"
+    ></script>
+  </body>
+</html>

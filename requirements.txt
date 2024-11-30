@@ -1,0 +1,6 @@
+torch
+tensorflow
+tf-keras
+transformers
+flask
+flask_cors
